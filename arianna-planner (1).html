@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arianna's Week Ahead</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --violet:#7B5EA7;--violet-l:#F0ECF9;--violet-m:#B8A0D4;
+  --teal:#1E9E80;--teal-l:#E3F7F2;
+  --blue:#2E7DC4;--blue-l:#E8F2FC;
+  --rose:#C43575;--rose-l:#FCE8F2;
+  --coral:#E8614A;--coral-l:#FDF0EE;--coral-m:#F0A090;
+  --text:#1C1A2E;--text-muted:#6B6880;--text-faint:#AAA8BA;
+  --surface:#fff;--surface-2:#F7F5FB;--bg:#F0EDF8;
+  --border:rgba(100,80,160,.10);--border-mid:rgba(100,80,160,.18);
+  --radius:14px;--radius-sm:9px;
+  --row-h:48px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:28px 16px 80px}
+.page{max-width:1180px;margin:0 auto}
+header{margin-bottom:26px;padding-bottom:18px;border-bottom:2px dashed rgba(123,94,167,.22)}
+.header-inner{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.wordmark{font-family:'Playfair Display',serif;font-size:34px;font-weight:400;letter-spacing:-.5px;line-height:1}
+.wordmark span{color:var(--violet);font-style:italic}
+.tagline{font-size:13px;color:var(--text-faint);margin-top:4px;font-weight:300}
+.header-dots{display:flex;gap:6px;align-items:center;padding-bottom:4px}
+.hdot{width:10px;height:10px;border-radius:50%}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1.5px solid var(--border-mid);border-radius:22px;padding:4px;width:fit-content;margin-bottom:24px}
+.tab-btn{font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 20px;border-radius:18px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;transition:all .18s}
+.tab-btn.active{background:var(--violet);color:#fff;font-weight:500}
+.pane{display:none}.pane.visible{display:block}
+.day-input-row{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.day-input-row label{font-size:13px;color:var(--text-muted)}
+.cdn{width:58px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;text-align:center;padding:6px 8px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);outline:none}
+.cdn:focus{border-color:var(--violet)}
+.cnote{font-size:12px;color:var(--text-faint)}
+
+/* ── CALENDAR GRID ── */
+.cal-layout{display:grid;grid-template-columns:1fr 228px;gap:12px}
+.cal-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cal-wrap{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;min-width:600px}
+.cal-head{display:grid;border-bottom:1.5px solid var(--border-mid)}
+.cal-head-inner{display:grid;grid-template-columns:52px repeat(5,1fr);border-bottom:1.5px solid var(--border-mid)}
+.cal-day-label{font-size:12px;font-weight:500;text-align:center;padding:10px 4px 8px;border-left:1px solid var(--border)}
+.cal-day-label:first-child{border-left:none}
+.cal-phase-label{font-size:10px;text-align:center;padding:3px 4px 8px;border-left:1px solid var(--border);font-weight:400}
+.cal-body{display:flex;position:relative}
+.time-col{width:52px;flex-shrink:0;border-right:1px solid var(--border-mid)}
+.time-slot{height:var(--row-h);border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:flex-end;padding:3px 6px 0 0;position:relative}
+.time-label{font-size:10px;color:var(--text-faint);white-space:nowrap;margin-top:-1px}
+.days-grid{display:grid;grid-template-columns:repeat(5,1fr);flex:1;position:relative}
+.day-track{position:relative;border-left:1px solid var(--border)}
+.day-track:first-child{border-left:none}
+.grid-row{height:var(--row-h);border-bottom:1px solid var(--border);position:relative}
+.grid-row.half{border-bottom:1px dashed rgba(100,80,160,.07)}
+.drop-highlight{position:absolute;inset:0;background:rgba(123,94,167,.07);border-radius:4px;pointer-events:none;display:none}
+
+/* ── BLOCKS ── */
+.cal-block{position:absolute;left:2px;right:2px;border-radius:8px;border:1.5px solid;cursor:grab;user-select:none;overflow:hidden;transition:box-shadow .15s,opacity .15s;z-index:10}
+.cal-block:active{cursor:grabbing;box-shadow:0 4px 16px rgba(0,0,0,.12);opacity:.92;z-index:50}
+.cal-block.dragging{opacity:.75;z-index:100;pointer-events:none}
+.cb-inner{padding:5px 7px;height:100%;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.cb-name{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.cb-time{font-size:10px;opacity:.7;line-height:1.2}
+.cb-sub{font-size:10px;opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.cb-note-ico{font-size:10px;opacity:.5;margin-top:auto}
+
+/* block detail panel */
+.detail-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid var(--border-mid);border-radius:var(--radius);padding:20px 22px;width:320px;z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.12);display:none}
+.detail-panel.open{display:block}
+.dp-overlay{position:fixed;inset:0;background:rgba(28,26,46,.18);z-index:199;display:none}
+.dp-overlay.open{display:block}
+.dp-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:400;margin-bottom:4px}
+.dp-day{font-size:12px;color:var(--text-faint);margin-bottom:14px}
+.dp-row{margin-bottom:12px}
+.dp-lbl{font-size:11px;font-weight:500;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.dp-tinp{display:flex;align-items:center;gap:6px}
+.dp-tinp input{font-family:'DM Sans',sans-serif;font-size:14px;padding:6px 10px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text);outline:none;width:90px}
+.dp-tinp input:focus{border-color:var(--violet)}
+.dp-sep{font-size:13px;color:var(--text-faint)}
+.dp-ta{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text);outline:none;resize:none;min-height:72px;line-height:1.5}
+.dp-ta:focus{border-color:var(--violet)}
+.dp-done-row{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.dp-done-row label{font-size:13px;color:var(--text-muted);cursor:pointer}
+.dp-check{width:16px;height:16px;cursor:pointer;accent-color:var(--violet)}
+.dp-close{width:100%;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:9px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--violet);color:#fff;cursor:pointer;transition:opacity .15s}
+.dp-close:hover{opacity:.88}
+
+/* LISTS */
+.lists-col{display:flex;flex-direction:column;gap:10px}
+.lcard{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px}
+.ltitle{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.litems{display:flex;flex-direction:column}
+.litem{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .15s}
+.litem:last-child{border-bottom:none}
+.lcb{width:14px;height:14px;border:1.5px solid var(--border-mid);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.lcb.checked{background:var(--violet);border-color:var(--violet)}
+.lcb.checked::after{content:'';display:block;width:7px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.ltext{font-size:13px;color:var(--text);transition:all .2s}
+.litem.fading{opacity:.28}.litem.fading .ltext{text-decoration:line-through}
+.addrow{display:flex;gap:5px;margin-top:9px}
+.ainp{flex:1;font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 9px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text);outline:none}
+.ainp:focus{border-color:var(--violet);background:var(--surface)}
+.abtn{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;padding:5px 11px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:transparent;color:var(--violet);cursor:pointer}
+.abtn:hover{background:var(--violet-l)}
+
+/* CYCLE */
+.cycle-top{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;max-width:500px}
+.scard{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:13px 15px}
+.slbl{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.sval{font-family:'Playfair Display',serif;font-size:22px;line-height:1.1;margin-bottom:2px}
+.ssub{font-size:12px;color:var(--text-muted)}
+.pbar-wrap{margin-bottom:18px}
+.pbar{display:flex;border-radius:6px;overflow:hidden;height:11px;margin-bottom:5px}
+.pseg{cursor:pointer;transition:opacity .15s}
+.pseg:hover{opacity:.72}
+.blbls{display:flex}
+.blbl{font-size:11px;color:var(--text-faint);text-align:center;padding-top:2px}
+.pnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.pnavbtn{font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 16px;border-radius:22px;border:1.5px solid var(--border-mid);background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s}
+.pnavbtn.active{font-weight:500}
+.pcard{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.phdr{padding:20px 24px 16px;border-bottom:1.5px solid var(--border)}
+.ptitle{font-family:'Playfair Display',serif;font-size:27px;font-weight:400;margin-bottom:4px}
+.prange{font-size:13px;color:var(--text-muted);margin-bottom:10px}
+.etag{display:inline-block;font-size:12px;font-weight:500;padding:5px 14px;border-radius:22px;border:1.5px solid}
+.pbody{padding:22px 24px;display:flex;flex-direction:column;gap:20px}
+.stitle{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:9px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:13px;padding:5px 12px;border-radius:22px;border:1.5px solid}
+.pill-no{font-size:13px;padding:5px 12px;border-radius:22px;border:1.5px solid var(--border-mid);color:var(--text-muted);background:var(--surface-2);text-decoration:line-through;text-decoration-color:#ccc}
+.btext{font-size:14px;color:var(--text-muted);line-height:1.7;font-weight:300}
+.divider{height:1.5px;background:var(--border)}
+.wo-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.wo-card{background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 13px}
+.wo-badge{display:inline-block;font-size:10px;font-weight:500;padding:2px 8px;border-radius:10px;border:1.5px solid;margin-bottom:7px}
+.wo-type{font-size:12px;font-weight:500;margin-bottom:5px}
+.wo-rec{font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:6px}
+.wo-why{font-size:11px;color:var(--text-faint);line-height:1.45;font-style:italic}
+.meal-section{display:none}
+/* enhanced phase sections */
+.phase-overview{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:2px}
+.overview-card{background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px}
+.overview-card-lbl{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:6px}
+.overview-card-txt{font-size:13px;color:var(--text-muted);line-height:1.6}
+.nutrients-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nutrient-card{background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px}
+.nutrient-lbl{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:5px}
+.nutrient-txt{font-size:12px;color:var(--text-muted);line-height:1.55}
+.foods-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.food-cat{background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px}
+.food-cat-lbl{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.food-cat-items{display:flex;flex-direction:column;gap:3px}
+.food-cat-item{font-size:12px;color:var(--text-muted);line-height:1.4}
+.fodmap-note{background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--text-muted);line-height:1.55;margin-top:6px}
+.fodmap-note strong{font-weight:500;color:var(--text)}
+@media(max-width:700px){.phase-overview{grid-template-columns:1fr}.nutrients-grid{grid-template-columns:1fr}.foods-grid{grid-template-columns:1fr 1fr}}
+.prep-builder{background:var(--surface-2);border-radius:var(--radius-sm);padding:14px;border:1.5px solid var(--border)}
+.prep-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pitem{background:var(--surface);border-radius:8px;padding:11px 13px;border:1.5px solid var(--border)}
+.pitem-lbl{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:4px}
+.pitem-txt{font-size:12px;color:var(--text-muted);line-height:1.55}
+.meal-ideas{display:flex;flex-direction:column;gap:10px}
+.mday{background:var(--surface-2);border-radius:var(--radius-sm);padding:13px 15px;border:1.5px solid var(--border)}
+.mday-lbl{font-size:12px;font-weight:500;margin-bottom:9px}
+.mslot{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.mslot:last-child{border-bottom:none}
+.mslot-name{font-size:10px;font-weight:500;color:var(--text-faint);width:54px;flex-shrink:0;padding-top:2px;text-transform:uppercase;letter-spacing:.05em}
+.mslot-txt{font-size:13px;color:var(--text-muted);line-height:1.45}
+footer{margin-top:44px;text-align:center;font-size:12px;color:var(--text-faint)}
+@media(max-width:900px){.cal-layout{grid-template-columns:1fr}.cycle-top{grid-template-columns:1fr}.wo-grid{grid-template-columns:1fr}.prep-grid{grid-template-columns:1fr}}
+@media(max-width:1100px){.cal-layout{grid-template-columns:1fr 200px}}
+@media(max-width:960px){.cal-layout{grid-template-columns:1fr}.lists-col{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}}
+/* PROJECTS */
+.projects-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.proj-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.proj-header{padding:16px 18px 14px;border-bottom:1.5px solid var(--border)}
+.proj-name{font-family:'Playfair Display',serif;font-size:20px;font-weight:400;margin-bottom:2px}
+.proj-desc{font-size:12px;color:var(--text-faint);font-weight:300}
+.proj-body{padding:14px 16px}
+.proj-items{display:flex;flex-direction:column;gap:0;margin-bottom:10px}
+.proj-item{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)}
+.proj-item:last-child{border-bottom:none}
+.proj-cb{width:16px;height:16px;border:1.5px solid var(--border-mid);border-radius:4px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.proj-cb.checked{border-color:currentColor}
+.proj-cb.checked::after{content:'';display:block;width:8px;height:5px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg) translate(1px,-1px)}
+.proj-item-text{font-size:13px;color:var(--text);line-height:1.4;flex:1;cursor:text;outline:none;border:none;background:transparent;font-family:'DM Sans',sans-serif;padding:0;resize:none;min-height:20px}
+.proj-item-text:focus{color:var(--text)}
+.proj-item.done .proj-item-text{text-decoration:line-through;color:var(--text-faint)}
+.proj-item-del{font-size:14px;color:var(--text-faint);cursor:pointer;opacity:0;transition:opacity .15s;flex-shrink:0;line-height:1;padding:0 2px;background:none;border:none;font-family:inherit}
+.proj-item:hover .proj-item-del{opacity:1}
+.proj-item-del:hover{color:var(--coral)}
+.proj-addrow{display:flex;gap:6px}
+.proj-ainp{flex:1;font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 10px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text);outline:none;transition:border-color .15s}
+.proj-ainp:focus{border-color:var(--violet);background:var(--surface)}
+.proj-abtn{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;padding:6px 12px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);background:transparent;cursor:pointer;transition:all .12s}
+.proj-stats{display:flex;gap:10px;padding:10px 0 2px;border-top:1px solid var(--border);margin-top:6px}
+.proj-stat{font-size:11px;color:var(--text-faint)}
+.proj-stat span{font-weight:500;color:var(--text-muted)}
+@media(max-width:800px){.projects-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="wordmark">Arianna's <span>Week Ahead</span></div>
+      <div class="tagline">schedule · cycle guide · lists — all yours</div>
+    </div>
+    <div class="header-dots">
+      <div class="hdot" style="background:#E8614A"></div>
+      <div class="hdot" style="background:#7B5EA7"></div>
+      <div class="hdot" style="background:#1E9E80"></div>
+      <div class="hdot" style="background:#2E7DC4"></div>
+      <div class="hdot" style="background:#C43575"></div>
+      <div class="hdot" style="background:#C47C1A"></div>
+      <div class="hdot" style="background:#4A8C5C"></div>
+    </div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('schedule')">Weekly schedule</button>
+  <button class="tab-btn" onclick="showTab('cycle')">Cycle guide</button>
+  <button class="tab-btn" onclick="showTab('projects')">Projects</button>
+</div>
+
+<!-- SCHEDULE -->
+<div class="pane visible" id="pane-schedule">
+  <div class="day-input-row">
+    <label>Cycle day</label>
+    <input class="cdn" type="number" id="scd" min="1" max="35" value="1" oninput="renderWeek()">
+    <span class="cnote">of ~24 days</span>
+  </div>
+  <div class="cal-layout">
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div class="cal-scroll-wrap">
+        <div class="cal-wrap" id="cal-wrap">
+          <!-- injected by JS -->
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-faint);padding-left:4px">Click any block to edit name, notes & time · drag to reschedule</div>
+    </div>
+    <div class="lists-col">
+      <div class="lcard">
+        <div class="ltitle" style="color:var(--teal)"><div class="ldot" style="background:var(--teal)"></div>Grocery list</div>
+        <div class="litems" id="list-grocery"></div>
+        <div class="addrow"><input class="ainp" id="inp-grocery" placeholder="add item…" onkeydown="if(event.key==='Enter')addItem('grocery')"><button class="abtn" onclick="addItem('grocery')">+</button></div>
+      </div>
+      <div class="lcard">
+        <div class="ltitle" style="color:var(--blue)"><div class="ldot" style="background:var(--blue)"></div>House needs</div>
+        <div class="litems" id="list-house"></div>
+        <div class="addrow"><input class="ainp" id="inp-house" placeholder="add item…" onkeydown="if(event.key==='Enter')addItem('house')"><button class="abtn" onclick="addItem('house')">+</button></div>
+      </div>
+      <div class="lcard">
+        <div class="ltitle" style="color:var(--rose)"><div class="ldot" style="background:var(--rose)"></div>Nice to haves</div>
+        <div class="litems" id="list-nicetohave"></div>
+        <div class="addrow"><input class="ainp" id="inp-nicetohave" placeholder="add item…" onkeydown="if(event.key==='Enter')addItem('nicetohave')"><button class="abtn" onclick="addItem('nicetohave')">+</button></div>
+      </div>
+      <div class="lcard">
+        <div class="ltitle" style="color:var(--violet)"><div class="ldot" style="background:var(--violet)"></div>To do</div>
+        <div class="litems" id="list-todo"></div>
+        <div class="addrow"><input class="ainp" id="inp-todo" placeholder="add task…" onkeydown="if(event.key==='Enter')addItem('todo')"><button class="abtn" onclick="addItem('todo')">+</button></div>
+      </div>
+      <div class="lcard">
+        <div class="ltitle" style="color:var(--coral)"><div class="ldot" style="background:var(--coral)"></div>Content ideas</div>
+        <div class="litems" id="list-content"></div>
+        <div class="addrow"><input class="ainp" id="inp-content" placeholder="add idea…" onkeydown="if(event.key==='Enter')addItem('content')"><button class="abtn" onclick="addItem('content')">+</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CYCLE -->
+<div class="pane" id="pane-cycle">
+  <div class="day-input-row">
+    <label>Cycle day</label>
+    <input class="cdn" type="number" id="cdi" min="1" max="35" value="1" oninput="updateCycle()">
+    <span class="cnote">of ~24 days</span>
+  </div>
+  <div class="cycle-top">
+    <div class="scard"><div class="slbl">Current phase</div><div class="sval" id="s-phase">—</div><div class="ssub" id="s-left">—</div></div>
+    <div class="scard"><div class="slbl">Energy quality</div><div class="sval" id="s-energy" style="font-size:15px;padding-top:4px;line-height:1.35">—</div></div>
+  </div>
+  <div class="pbar-wrap"><div class="pbar" id="pbar"></div><div class="blbls" id="blbls"></div></div>
+  <div class="pnav" id="pnav"></div>
+  <div class="pcard">
+    <div class="phdr">
+      <div class="ptitle" id="pc-name">—</div>
+      <div class="prange" id="pc-range">—</div>
+      <span class="etag" id="pc-etag">—</span>
+    </div>
+    <div class="pbody">
+      <div id="pc-overview-wrap" style="display:none"><div class="stitle">What your body is doing</div><div class="phase-overview" id="pc-overview"></div></div>
+      <div class="divider" id="pc-overview-div" style="display:none"></div>
+      <div id="pc-nutrients-wrap" style="display:none"><div class="stitle">Nutrients &amp; macros to prioritize</div><div class="nutrients-grid" id="pc-nutrients"></div></div>
+      <div class="divider" id="pc-nutrients-div" style="display:none"></div>
+      <div id="pc-foodcats-wrap" style="display:none"><div class="stitle">Foods that support this phase</div><div class="foods-grid" id="pc-foodcats"></div><div class="fodmap-note" id="pc-fodmap"></div></div>
+      <div class="divider" id="pc-foodcats-div" style="display:none"></div>
+      <div id="pc-simplefood-wrap"><div class="stitle">Supportive foods</div><div class="pills" id="pc-foods"></div></div>
+      <div class="divider" id="pc-simplefood-div"></div>
+      <div><div class="stitle">Limit or avoid</div><div class="pills" id="pc-avoid"></div></div>
+      <div class="divider"></div>
+      <div id="pc-focus-wrap"><div class="stitle">Nutrition focus</div><p class="btext" id="pc-focus"></p></div>
+      <div class="divider" id="pc-focus-div"></div>
+      <div class="meal-section" id="meal-section">
+        <div class="stitle" style="margin-bottom:12px">Meal prep builder</div>
+        <div class="prep-builder"><div class="prep-grid" id="prep-grid"></div></div>
+        <div style="height:20px"></div>
+        <div class="stitle" style="margin-bottom:12px">Sample daily meals</div>
+        <div class="meal-ideas" id="meal-ideas"></div>
+        <div style="height:6px"></div>
+        <div class="divider" style="margin-top:6px"></div>
+        <div style="height:4px"></div>
+      </div>
+      <div><div class="stitle">Recommended workouts for this phase</div><div class="wo-grid" id="pc-wo"></div></div>
+      <div class="divider"></div>
+      <div><div class="stitle">General movement note</div><p class="btext" id="pc-move"></p></div>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECTS -->
+<div class="pane" id="pane-projects">
+  <div class="projects-grid">
+    <div class="proj-card" id="proj-pow">
+      <div class="proj-header" style="border-top:3px solid #E8614A">
+        <div class="proj-name" style="color:#E8614A">Pressed Out West</div>
+        <div class="proj-desc">content · brand · strategy</div>
+      </div>
+      <div class="proj-body">
+        <div class="proj-items" id="pitems-pow"></div>
+        <div class="proj-addrow">
+          <input class="proj-ainp" id="pinp-pow" placeholder="add task…" onkeydown="if(event.key==='Enter')addProjItem('pow')">
+          <button class="proj-abtn" style="color:#E8614A;border-color:#F0A090" onclick="addProjItem('pow')">+</button>
+        </div>
+        <div class="proj-stats" id="pstats-pow"></div>
+      </div>
+    </div>
+    <div class="proj-card" id="proj-cyk">
+      <div class="proj-header" style="border-top:3px solid #7B5EA7">
+        <div class="proj-name" style="color:#7B5EA7">ContentYouKnead</div>
+        <div class="proj-desc">content · community · growth</div>
+      </div>
+      <div class="proj-body">
+        <div class="proj-items" id="pitems-cyk"></div>
+        <div class="proj-addrow">
+          <input class="proj-ainp" id="pinp-cyk" placeholder="add task…" onkeydown="if(event.key==='Enter')addProjItem('cyk')">
+          <button class="proj-abtn" style="color:#7B5EA7;border-color:#B8A0D4" onclick="addProjItem('cyk')">+</button>
+        </div>
+        <div class="proj-stats" id="pstats-cyk"></div>
+      </div>
+    </div>
+    <div class="proj-card" id="proj-col">
+      <div class="proj-header" style="border-top:3px solid #1E9E80">
+        <div class="proj-name" style="color:#1E9E80">Collaborations</div>
+        <div class="proj-desc">partnerships · outreach · deals</div>
+      </div>
+      <div class="proj-body">
+        <div class="proj-items" id="pitems-col"></div>
+        <div class="proj-addrow">
+          <input class="proj-ainp" id="pinp-col" placeholder="add task…" onkeydown="if(event.key==='Enter')addProjItem('col')">
+          <button class="proj-abtn" style="color:#1E9E80;border-color:#6DCDB5" onclick="addProjItem('col')">+</button>
+        </div>
+        <div class="proj-stats" id="pstats-col"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="dp-overlay" id="dp-overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="dp-title" id="dp-title">Block</div>
+  <div class="dp-day" id="dp-day"></div>
+  <div class="dp-row">
+    <div class="dp-lbl">Block name</div>
+    <input type="text" class="dp-ta" id="dp-name" style="min-height:auto;padding:7px 10px;font-size:13px" placeholder="e.g. Workout">
+  </div>
+  <div class="dp-row">
+    <div class="dp-lbl">Subtitle / detail</div>
+    <input type="text" class="dp-ta" id="dp-sub" style="min-height:auto;padding:7px 10px;font-size:13px" placeholder="e.g. hot pilates · strength">
+  </div>
+  <div class="dp-row">
+    <div class="dp-lbl">Time</div>
+    <div class="dp-tinp">
+      <input type="text" id="dp-start" placeholder="9:00am">
+      <span class="dp-sep">–</span>
+      <input type="text" id="dp-end" placeholder="10:00am">
+    </div>
+  </div>
+  <div class="dp-row">
+    <div class="dp-lbl">Notes for today</div>
+    <textarea class="dp-ta" id="dp-notes" placeholder="e.g. prep reformer class, call studio about schedule…" rows="3"></textarea>
+  </div>
+  <div class="dp-done-row">
+    <input type="checkbox" class="dp-check" id="dp-done">
+    <label for="dp-done">Mark as done</label>
+  </div>
+  <button class="dp-close" onclick="closeDetail()">Save</button>
+</div>
+
+<footer>Made for Arianna ✦ update your cycle day each morning</footer>
+</div>
+
+<script>
+/* ── CONFIG ── */
+const ROW_H = 48;
+const START_HOUR = 6;
+const END_HOUR = 23;
+const TOTAL_ROWS = END_HOUR - START_HOUR;
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const MEAL_DAYS = [0,3];
+
+function timeToRow(h, m){ return h - START_HOUR + m/60; }
+function rowToTime(row){
+  const h = Math.floor(row) + START_HOUR;
+  const m = Math.round((row % 1)*60);
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  const ampm = h < 12 ? 'am' : 'pm';
+  return `${hh}:${m.toString().padStart(2,'0')}${ampm}`;
+}
+function parseTime(str){
+  str = str.trim().toLowerCase();
+  const m = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if(!m) return null;
+  let h = parseInt(m[1]);
+  const min = m[2] ? parseInt(m[2]) : 0;
+  const ap = m[3];
+  if(ap === 'pm' && h !== 12) h += 12;
+  if(ap === 'am' && h === 12) h = 0;
+  return {h, min};
+}
+
+const BDEFS = [
+  {id:'work',    name:'Corporate work',            sub:'',                              dot:'#534AB7',bg:'#EEEDFE',bd:'#C0BAF0',startH:9, startM:0, durH:5},
+  {id:'workout', name:'Workout',                   sub:'hot pilates · strength · hybrid',dot:'#1E9E80',bg:'#E3F7F2',bd:'#6DCDB5',startH:7, startM:0, durH:1.5},
+  {id:'steps',   name:'10k steps',                 sub:'walk · get outside',            dot:'#8B5EA7',bg:'#F3EFFE',bd:'#C4A8E8',startH:12,startM:0, durH:0.75},
+  {id:'pilates', name:'Pilates teaching practice', sub:'',                              dot:'#C43575',bg:'#FCE8F2',bd:'#E890C0',startH:17,startM:0, durH:1},
+  {id:'project', name:'Project work',              sub:'Pressed Out West / content',    dot:'#2E7DC4',bg:'#E8F2FC',bd:'#82B8E8',startH:15,startM:0, durH:2},
+  {id:'social',  name:'Social',                    sub:'dinners, events, friends',      dot:'#E8614A',bg:'#FDF0EE',bd:'#F0A090',startH:19,startM:0, durH:2},
+  {id:'meal',    name:'Meal prep',                 sub:'',                              dot:'#C47C1A',bg:'#FDF3E3',bd:'#E8B870',startH:18,startM:0, durH:1.5,mealOnly:true},
+  {id:'admin',   name:'Life admin',                sub:'appts, errands, cleaning',      dot:'#4A8C5C',bg:'#EAF4EE',bd:'#90C8A0',startH:20,startM:0, durH:1},
+];
+
+/* state: { dayIdx: { blockId: { startH, startM, durH, notes, done } } } */
+const S = {};
+DAYS.forEach((_,di)=>{
+  S[di]={};
+  BDEFS.forEach(b=>{
+    if(b.mealOnly && !MEAL_DAYS.includes(di)) return;
+    S[di][b.id]={startH:b.startH, startM:b.startM, durH:b.durH, notes:'', done:false};
+  });
+});
+
+let detailTarget = null; // {di, bid}
+
+/* ── RENDER CALENDAR ── */
+function renderWeek(){
+  const cd = parseInt(document.getElementById('scd').value)||1;
+  const ph = getPhase(cd).phase;
+  const wrap = document.getElementById('cal-wrap');
+
+  // Header
+  let headHTML = `<div class="cal-head-inner">
+    <div style="width:52px;border-right:1px solid var(--border-mid)"></div>`;
+  DAYS.forEach((d,di)=>{
+    headHTML += `<div class="cal-day-label" style="${di===0?'border-left:none':''}">${d}<div style="font-size:10px;color:${ph.color};font-weight:400;margin-top:2px">${ph.name}</div></div>`;
+  });
+  headHTML += `</div>`;
+
+  // Time col
+  let timeHTML = '';
+  for(let h=START_HOUR; h<END_HOUR; h++){
+    const label = h===0?'12am':h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
+    timeHTML += `<div class="time-slot"><span class="time-label">${label}</span></div>`;
+  }
+
+  // Day tracks with drop zones
+  let tracksHTML = '';
+  DAYS.forEach((_,di)=>{
+    let rows = '';
+    for(let r=0; r<TOTAL_ROWS; r++){
+      rows += `<div class="grid-row" data-di="${di}" data-row="${r}"></div>`;
+    }
+    tracksHTML += `<div class="day-track" id="track-${di}">${rows}</div>`;
+  });
+
+  wrap.innerHTML = `<div class="cal-head">${headHTML}</div>
+    <div class="cal-body">
+      <div class="time-col">${timeHTML}</div>
+      <div class="days-grid" id="days-grid">${tracksHTML}</div>
+    </div>`;
+
+  // Render blocks
+  BDEFS.forEach(b=>{
+    DAYS.forEach((_,di)=>{
+      if(b.mealOnly && !MEAL_DAYS.includes(di)) return;
+      renderBlock(di, b.id);
+    });
+  });
+
+  setupDropZones();
+}
+
+function renderBlock(di, bid){
+  const b = BDEFS.find(x=>x.id===bid);
+  const s = S[di][bid];
+  if(!s) return;
+
+  const track = document.getElementById(`track-${di}`);
+  const existing = track.querySelector(`[data-bid="${bid}"]`);
+  if(existing) existing.remove();
+
+  const topPx = timeToRow(s.startH, s.startM) * ROW_H;
+  const heightPx = Math.max(s.durH * ROW_H, ROW_H * 0.6);
+
+  const el = document.createElement('div');
+  el.className = 'cal-block' + (s.done ? ' done-block' : '');
+  el.dataset.di = di;
+  el.dataset.bid = bid;
+  el.style.cssText = `top:${topPx}px;height:${heightPx}px;background:${b.bg};border-color:${b.bd};left:2px;right:2px;position:absolute;border-radius:8px;border:1.5px solid;cursor:grab;user-select:none;overflow:hidden;z-index:10;transition:box-shadow .15s;opacity:${s.done?0.45:1}`;
+
+  const timeStr = rowToTime(timeToRow(s.startH,s.startM));
+  const endRow = timeToRow(s.startH,s.startM) + s.durH;
+  const endStr = rowToTime(endRow);
+  const displayName = s.customName || b.name;
+  const displaySub = s.customSub !== undefined ? s.customSub : (b.sub || '');
+
+  el.innerHTML = `<div class="cb-inner" style="padding:5px 7px;height:100%;display:flex;flex-direction:column;gap:1px;overflow:hidden">
+    <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${b.dot};line-height:1.2">${displayName}</div>
+    <div style="font-size:10px;color:${b.dot};opacity:.7;line-height:1.2">${timeStr} – ${endStr}</div>
+    ${displaySub && heightPx > 50 ? `<div style="font-size:10px;opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${b.dot};line-height:1.2">${displaySub}</div>` : ''}
+    ${s.notes && heightPx > 64 ? `<div style="font-size:10px;opacity:.5;color:${b.dot};margin-top:auto">✎ note</div>` : ''}
+  </div>`;
+
+  el.addEventListener('click', (e)=>{ if(!el._dragged) openDetail(di, bid); el._dragged=false; });
+  setupDrag(el, di, bid);
+  track.appendChild(el);
+}
+
+/* ── DRAG ── */
+function setupDrag(el, di, bid){
+  let startY, origTop, origDi, trackW;
+
+  el.addEventListener('mousedown', e=>{
+    e.preventDefault();
+    el._dragged = false;
+    startY = e.clientY;
+    origTop = parseFloat(el.style.top);
+    origDi = di;
+    const grid = document.getElementById('days-grid');
+    trackW = grid.getBoundingClientRect().width / 5;
+
+    el.style.zIndex = 100;
+    el.style.opacity = '0.82';
+    el.style.cursor = 'grabbing';
+    el.style.boxShadow = '0 4px 20px rgba(0,0,0,.15)';
+    el.style.transition = 'none';
+
+    function onMove(e){
+      const dy = e.clientY - startY;
+      if(Math.abs(dy) > 3) el._dragged = true;
+      const rawTop = origTop + dy;
+      const snapped = Math.round(rawTop / (ROW_H/2)) * (ROW_H/2);
+      const clamped = Math.max(0, Math.min(snapped, (TOTAL_ROWS-S[di][bid].durH)*ROW_H));
+      el.style.top = clamped + 'px';
+
+      // day change via horizontal
+      const gridRect = document.getElementById('days-grid').getBoundingClientRect();
+      const relX = e.clientX - gridRect.left;
+      const newDi = Math.max(0, Math.min(4, Math.floor(relX / trackW)));
+      if(newDi !== di){
+        const srcTrack = document.getElementById(`track-${di}`);
+        const dstTrack = document.getElementById(`track-${newDi}`);
+        const b2 = BDEFS.find(x=>x.id===bid);
+        if(dstTrack && !(b2.mealOnly && !MEAL_DAYS.includes(newDi))){
+          // move S entry
+          if(!S[newDi][bid]) S[newDi][bid] = {...S[origDi][bid]};
+          delete S[di][bid];
+          di = newDi;
+          dstTrack.appendChild(el);
+          el.dataset.di = newDi;
+        }
+      }
+    }
+
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      el.style.cursor = 'grab';
+      el.style.zIndex = 10;
+      el.style.opacity = S[di][bid] && S[di][bid].done ? '0.45' : '1';
+      el.style.boxShadow = '';
+      el.style.transition = 'box-shadow .15s';
+
+      const newRow = parseFloat(el.style.top) / ROW_H;
+      const h = Math.floor(newRow) + START_HOUR;
+      const m = Math.round((newRow % 1)*60);
+      if(S[di] && S[di][bid]){
+        S[di][bid].startH = h;
+        S[di][bid].startM = m;
+      }
+      renderBlock(di, bid);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function setupDropZones(){}
+
+/* ── DETAIL PANEL ── */
+function openDetail(di, bid){
+  detailTarget = {di, bid};
+  const b = BDEFS.find(x=>x.id===bid);
+  const s = S[di][bid];
+  document.getElementById('dp-title').textContent = s.customName || b.name;
+  document.getElementById('dp-title').style.color = b.dot;
+  document.getElementById('dp-day').textContent = DAYS[di];
+  document.getElementById('dp-name').value = s.customName || b.name;
+  document.getElementById('dp-sub').value = s.customSub !== undefined ? s.customSub : (b.sub || '');
+  document.getElementById('dp-start').value = rowToTime(timeToRow(s.startH,s.startM));
+  document.getElementById('dp-end').value = rowToTime(timeToRow(s.startH,s.startM)+s.durH);
+  document.getElementById('dp-notes').value = s.notes || '';
+  document.getElementById('dp-done').checked = s.done || false;
+  document.getElementById('dp-overlay').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail(){
+  if(detailTarget){
+    const {di,bid} = detailTarget;
+    const s = S[di][bid];
+    const startStr = document.getElementById('dp-start').value;
+    const endStr = document.getElementById('dp-end').value;
+    const sp = parseTime(startStr);
+    const ep = parseTime(endStr);
+    if(sp){ s.startH=sp.h; s.startM=sp.min; }
+    if(ep && sp){ s.durH = (ep.h + ep.min/60) - (sp.h + sp.min/60); if(s.durH<0.25)s.durH=0.25; }
+    const newName = document.getElementById('dp-name').value.trim();
+    const newSub = document.getElementById('dp-sub').value.trim();
+    if(newName) s.customName = newName;
+    s.customSub = newSub;
+    s.notes = document.getElementById('dp-notes').value;
+    s.done = document.getElementById('dp-done').checked;
+    renderBlock(di,bid);
+  }
+  document.getElementById('dp-overlay').classList.remove('open');
+  document.getElementById('detail-panel').classList.remove('open');
+  detailTarget = null;
+}
+
+/* ── LISTS ── */
+const LISTS={grocery:[],house:[],nicetohave:[],todo:[],content:[]};
+function addItem(k){const i=document.getElementById('inp-'+k);const v=i.value.trim();if(!v)return;LISTS[k].push(v);i.value='';renderList(k);}
+function renderList(k){const c=document.getElementById('list-'+k);c.innerHTML='';LISTS[k].forEach((item,i)=>{const row=document.createElement('div');row.className='litem';row.innerHTML=`<div class="lcb"></div><div class="ltext">${item}</div>`;row.addEventListener('click',()=>{row.classList.add('fading');row.querySelector('.lcb').classList.add('checked');setTimeout(()=>{LISTS[k].splice(i,1);renderList(k);},500);});c.appendChild(row);});}
+
+/* ── PROJECTS ── */
+const PROJ_COLORS={pow:'#E8614A',cyk:'#7B5EA7',col:'#1E9E80'};
+const PROJ_TASKS={pow:[],cyk:[],col:[]};
+
+function addProjItem(k){
+  const inp=document.getElementById('pinp-'+k);
+  const v=inp.value.trim(); if(!v)return;
+  PROJ_TASKS[k].push({text:v,done:false});
+  inp.value='';
+  renderProjItems(k);
+}
+function renderProjItems(k){
+  const c=document.getElementById('pitems-'+k);
+  const color=PROJ_COLORS[k];
+  c.innerHTML='';
+  PROJ_TASKS[k].forEach((task,i)=>{
+    const row=document.createElement('div');
+    row.className='proj-item'+(task.done?' done':'');
+    row.innerHTML=`<div class="proj-cb${task.done?' checked':''}" style="${task.done?'border-color:'+color+';color:'+color:''}"></div><div class="proj-item-text" contenteditable="true" spellcheck="false">${task.text}</div><button class="proj-item-del" title="remove">×</button>`;
+    const cb=row.querySelector('.proj-cb');
+    cb.addEventListener('click',()=>{
+      task.done=!task.done;
+      row.classList.toggle('done',task.done);
+      cb.classList.toggle('checked',task.done);
+      cb.style.borderColor=task.done?color:'';
+      cb.style.color=task.done?color:'';
+      renderProjStats(k);
+    });
+    const txt=row.querySelector('.proj-item-text');
+    txt.addEventListener('blur',()=>{ task.text=txt.textContent.trim()||task.text; });
+    txt.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();txt.blur();document.getElementById('pinp-'+k).focus();} });
+    row.querySelector('.proj-item-del').addEventListener('click',()=>{
+      PROJ_TASKS[k].splice(i,1); renderProjItems(k);
+    });
+    c.appendChild(row);
+  });
+  renderProjStats(k);
+}
+function renderProjStats(k){
+  const tasks=PROJ_TASKS[k];
+  const total=tasks.length;
+  const done=tasks.filter(t=>t.done).length;
+  const el=document.getElementById('pstats-'+k);
+  if(!total){el.innerHTML='';return;}
+  el.innerHTML=`<div class="proj-stat"><span>${done}</span> done</div><div class="proj-stat"><span>${total-done}</span> remaining</div>`;
+}
+
+/* ── CYCLE DATA ── */
+const PHASES=[
+  {name:'Menstrual',days:[1,5],color:'#C4553A',bg:'#FDF2EE',mid:'#E8987E',dark:'#7A2E1C',
+   energy:'Rest & restore',
+   rich:true,
+   overview:[
+     {lbl:'What your body is doing',txt:'Your uterine lining is shedding, triggering a drop in estrogen and progesterone to their lowest points of the cycle. Prostaglandins (hormone-like compounds) cause uterine contractions — this is the source of cramping. Inflammatory markers rise slightly, which is normal but means your body is working hard internally.'},
+     {lbl:'What it needs',txt:'Iron to replace what you\'re losing. Magnesium to ease muscle contractions and cramping. Anti-inflammatory fats (omega-3s) to counteract prostaglandins. Warmth — both in food temperature and in how you treat yourself. Hydration, because blood loss is dehydrating.'},
+     {lbl:'How you might feel',txt:'Fatigue and low energy are normal — your body is doing a lot. You may feel more introverted, slower, and less motivated. Mood can dip with the hormone drop. Some days you\'ll feel fine; others you\'ll need to fully rest. Bloating and digestive sensitivity are common, especially on days 1–2.'},
+   ],
+   nutrients:[
+     {lbl:'Iron',txt:'Prioritize to replace menstrual blood loss. Pair with vitamin C foods to boost absorption. Aim for 18mg/day from food sources.'},
+     {lbl:'Magnesium',txt:'Relaxes smooth muscle, reduces cramping and tension. Found in dark leafy greens, pumpkin seeds, dark chocolate. Also helps with sleep and mood.'},
+     {lbl:'Omega-3 fatty acids',txt:'Counter inflammatory prostaglandins that cause cramping. Salmon, walnuts, flaxseeds. Anti-inflammatory fats are your friend this week.'},
+     {lbl:'Complex carbs',txt:'Stable blood sugar helps stabilize mood alongside hormone drops. Opt for rice, oats, sweet potato over refined carbs.'},
+     {lbl:'Protein',txt:'Supports tissue repair and keeps energy stable. Aim for ~25–30g per meal. Eggs, salmon, turkey, and lentils are all gentle options.'},
+     {lbl:'Hydration',txt:'Blood loss is dehydrating. Add electrolytes if cramping is severe. Herbal teas (ginger, chamomile, raspberry leaf) count and also reduce inflammation.'},
+   ],
+   foodCats:[
+     {lbl:'Protein',color:'#C4553A',items:['Wild salmon (baked or poached)','Eggs (scrambled or soft-boiled)','Ground turkey','Canned tuna in water','Chicken breast (well-cooked)','Bone broth (sip as a drink)']},
+     {lbl:'Vegetables',color:'#3A7D44',items:['Spinach (sautéed — easier to digest)','Zucchini','Carrots (roasted)','Beets (roasted)','Bok choy','Green beans','Kale (cooked, not raw)','Sweet potato']},
+     {lbl:'Grains & carbs',color:'#8B5E1A',items:['White or brown rice','Oats (rolled)','Quinoa','Rice cakes','Sourdough (small amounts)','Potato']},
+     {lbl:'Fats & seeds',color:'#2C6FAC',items:['Walnuts','Pumpkin seeds','Sesame seeds / tahini','Olive oil','Flaxseeds (ground)','Coconut oil (cooking)']},
+     {lbl:'Fruits',color:'#7B5EA7',items:['Blueberries','Strawberries','Raspberries','Banana (ripe)','Cantaloupe','Kiwi']},
+     {lbl:'Extras & drinks',color:'#1E9E80',items:['Ginger tea (anti-cramp)','Chamomile tea (relaxing)','Turmeric (anti-inflammatory)','Dark chocolate 70%+','Bone broth','Coconut water (electrolytes)']},
+   ],
+   fodmap:'Low FODMAP notes for this phase: stick to cooked vegetables over raw — spinach, zucchini, carrots, green beans, and bok choy are all safe. Choose white rice or oats over wheat. Avoid garlic and onion (use garlic-infused oil instead). Berries are generally fine in moderate portions. Avoid lentils and chickpeas if your gut is flaring — sub with well-cooked eggs or salmon instead. Bone broth is a great gut-friendly base for soups.',
+   avoid:['Caffeine (worsens cramps + anxiety)','Alcohol','Processed salty foods (bloating)','Cold raw foods (hard to digest)','Fried foods','High-FODMAP legumes on bad days'],
+   workouts:[
+     {type:'Hot Pilates',badge:'Gentle only',rec:'Low-intensity mat or restorative hot pilates. Skip inversions if cramping. Child\'s pose, hip openers, and gentle spinal twists are ideal.',why:'Heat soothes cramps and eases muscle tension. Gentle core work supports the lower back without aggravating the uterus. The warmth of a heated studio can actually feel really good on day 1–2.',bdg:'#C4553A',bbg:'#FDF2EE'},
+     {type:'Strength',badge:'Modified or skip',rec:'Light weights only — upper body isolation if you train at all. Skip heavy squats, deadlifts, and anything that loads the pelvic floor intensely.',why:'Estrogen and progesterone are at their lowest point. Strength output genuinely drops and injury risk is slightly higher. This isn\'t the week to push numbers.',bdg:'#8B5EA7',bbg:'#F3EFFE'},
+     {type:'Hybrid / Cardio',badge:'Walk instead',rec:'Replace HIIT or any hybrid cardio with a long slow walk outdoors. Your 10k steps goal is plenty. Save the intensity for next week.',why:'High-intensity cardio spikes cortisol, which worsens cramping, inflammation, and fatigue during menstruation. Walking keeps circulation up without adding hormonal stress.',bdg:'#4A8C5C',bbg:'#EAF4EE'},
+   ],
+   move:'Honor rest. This is your lowest energy window of the entire cycle — biologically, it\'s your body\'s winter. Even one gentle session plus daily walks is genuinely enough. Movement should feel supportive, never punishing. If you feel good on day 4 or 5 as the phase lifts, you can start easing back in.',
+   hasMeals:true,
+   prep:{protein:'Baked salmon · soft-boiled eggs · ground turkey',grains:'White or brown rice (batch cook) · rolled oats · quinoa',veg:'Roasted beets + carrots · sautéed spinach + zucchini · steamed green beans',extras:'Bone broth (freeze in portions to sip) · dark chocolate bark · ginger + chamomile tea bags ready to go'},
+   meals:[
+     {label:'Day 1',slots:[{n:'Breakfast',t:'Warm oats with walnuts, pumpkin seeds + a drizzle of honey'},{n:'Lunch',t:'Rice bowl with baked salmon, sautéed spinach + sesame seeds'},{n:'Dinner',t:'Turkey + zucchini soup with white rice (bone broth base)'},{n:'Snack',t:'Dark chocolate 70%+ + ginger tea'}]},
+     {label:'Day 2',slots:[{n:'Breakfast',t:'Scrambled eggs with sautéed spinach + sourdough or rice toast'},{n:'Lunch',t:'Rice bowl with roasted beets + carrots + tahini drizzle'},{n:'Dinner',t:'Baked salmon with steamed green beans + quinoa'},{n:'Snack',t:'Banana + walnuts'}]},
+     {label:'Day 3',slots:[{n:'Breakfast',t:'Oats with blueberries + flaxseeds + almond butter'},{n:'Lunch',t:'Turkey rice bowl with roasted zucchini + olive oil'},{n:'Dinner',t:'Bone broth soup with egg, bok choy + white rice'},{n:'Snack',t:'Raspberries + pumpkin seeds + dark chocolate'}]},
+   ]},
+  {name:'Follicular',days:[6,13],color:'#2C6FAC',bg:'#EEF5FC',mid:'#7AAFD4',dark:'#1A4570',
+   energy:'Rising — start new things',
+   foods:['Eggs','Flaxseeds','Kimchi','Yogurt','Quinoa','Broccoli','Avocado','Pumpkin seeds','Berries','Chicken','Sprouted grains','Miso'],
+   avoid:['Heavy processed foods','Excess refined sugar'],
+   focus:'Estrogen rises — support it with phytoestrogen-rich foods like flaxseeds and fermented foods. Light, fresh meals feel right. Great time to try new recipes.',
+   workouts:[
+     {type:'Hot Pilates',badge:'Build intensity',rec:'Increase class difficulty. Add heat, longer holds, add-on challenges. Great week for reformer.',why:'Rising estrogen improves joint mobility and reduces perceived effort — your body handles heat and challenge better.',bdg:'#C43575',bbg:'#FCE8F2'},
+     {type:'Strength',badge:'Progressive overload',rec:'Increase weights from last week. Compound lifts — squats, deadlifts, bench. Build.',why:'Estrogen supports muscle protein synthesis and recovery. You\'ll feel stronger and bounce back faster.',bdg:'#2E7DC4',bbg:'#E8F2FC'},
+     {type:'Hybrid / Cardio',badge:'Add cardio',rec:'Layer in running, cycling, or a cardio-strength hybrid 2–3x this week.',why:'Cardiovascular endurance improves this phase — heart rate recovers faster and output is higher.',bdg:'#1E9E80',bbg:'#E3F7F2'},
+   ],
+   move:'Energy is building all week. Push a little harder each day. Great week for a harder class, a new PR, or adding a second workout session.',
+   hasMeals:true,
+   prep:{protein:'Grilled chicken · hard-boiled eggs · edamame',grains:'Quinoa · sprouted grain bread · oats',veg:'Roasted broccoli · sliced avocado · raw veggie snack packs',extras:'Flaxseed mix · kimchi jar · miso paste for soups'},
+   meals:[
+     {label:'Day 1',slots:[{n:'Breakfast',t:'Greek yogurt with flaxseeds + berries + pumpkin seeds'},{n:'Lunch',t:'Quinoa bowl with grilled chicken + avocado + kimchi'},{n:'Dinner',t:'Miso soup with tofu + broccoli + rice'},{n:'Snack',t:'Hard-boiled egg + berries'}]},
+     {label:'Day 2',slots:[{n:'Breakfast',t:'Oats with flaxseeds + banana + almond butter'},{n:'Lunch',t:'Sprouted grain wrap with egg, avocado + broccoli slaw'},{n:'Dinner',t:'Stir-fried chicken with broccoli + quinoa'},{n:'Snack',t:'Edamame + pumpkin seeds'}]},
+     {label:'Day 3',slots:[{n:'Breakfast',t:'Smoothie with yogurt + berries + flaxseeds + spinach'},{n:'Lunch',t:'Big salad with chicken, avocado, seeds + lemon dressing'},{n:'Dinner',t:'Miso-glazed salmon with quinoa + roasted broccoli'},{n:'Snack',t:'Kimchi + rice cake'}]},
+   ]},
+  {name:'Ovulation',days:[14,16],color:'#3A7D44',bg:'#EDF6EE',mid:'#7DBF85',dark:'#214D28',
+   energy:'Peak — film, create, show up',
+   foods:['Broccoli','Cauliflower','Brussels sprouts','Fiber-rich foods','Leafy greens','Flaxseeds','Raspberries','Asparagus','Sunflower seeds','Light proteins','Raw salads'],
+   avoid:['Heavy fatty meals','Excess processed soy','Large portions'],
+   focus:'Your body needs to metabolize the estrogen peak. Cruciferous vegetables and fiber help clear excess estrogen. Keep meals lighter and fresh.',
+   workouts:[
+     {type:'Hot Pilates',badge:'Peak intensity',rec:'Hardest class of the month — advanced hot pilates, full reformer, challenging flows.',why:'Peak estrogen + testosterone = maximum strength, flexibility, and heat tolerance. Body is fully optimized.',bdg:'#C43575',bbg:'#FCE8F2'},
+     {type:'Strength',badge:'Go heavy',rec:'Max effort lifts. Attempt new PRs. High volume compound movements. Recovery is excellent.',why:'Testosterone peaks at ovulation — this is your highest muscle-building window of the month.',bdg:'#2E7DC4',bbg:'#E8F2FC'},
+     {type:'Hybrid / HIIT',badge:'Hit it hard',rec:'Full HIIT sessions, sprint intervals, or a tough hybrid class. Push to the limit.',why:'VO2 max is highest, heart rate recovery fastest, pain tolerance elevated — biological peak.',bdg:'#1E9E80',bbg:'#E3F7F2'},
+   ],
+   move:'Your absolute peak. Schedule hardest workouts here, film demanding content, take on new challenges.',
+   hasMeals:true,
+   prep:{protein:'Grilled fish or shrimp · chicken breast · hard-boiled eggs',grains:'Light quinoa portions · lettuce cups as alternative',veg:'Shaved brussels sprouts · roasted cauliflower · asparagus · raw salad greens',extras:'Flaxseed topping · raspberry chia pudding · sunflower seeds'},
+   meals:[
+     {label:'Day 1',slots:[{n:'Breakfast',t:'Chia pudding with raspberries + flaxseeds'},{n:'Lunch',t:'Big raw salad with grilled shrimp + asparagus + sunflower seeds'},{n:'Dinner',t:'Grilled fish + roasted cauliflower + small quinoa'},{n:'Snack',t:'Raspberries + sunflower seeds'}]},
+     {label:'Day 2',slots:[{n:'Breakfast',t:'Green smoothie with spinach + flaxseeds + berries'},{n:'Lunch',t:'Brussels sprout salad with chicken + lemon tahini'},{n:'Dinner',t:'Lettuce cup tacos with spiced turkey + salsa'},{n:'Snack',t:'Sliced veg + hummus'}]},
+     {label:'Day 3',slots:[{n:'Breakfast',t:'Yogurt bowl with raspberries + flaxseeds + granola'},{n:'Lunch',t:'Asparagus + egg frittata + side salad'},{n:'Dinner',t:'Grilled chicken + cauliflower rice + greens'},{n:'Snack',t:'Sunflower seeds + herbal tea'}]},
+   ]},
+  {name:'Luteal',days:[17,24],color:'#8B5E1A',bg:'#FBF3E8',mid:'#C49554',dark:'#573B0F',
+   energy:'Winding down — admin, edit, prep',
+   foods:['Sweet potatoes','Brown rice','Oats','Dark chocolate','Magnesium-rich greens','Chickpeas','Turkey','Sunflower seeds','Whole grains','Chamomile tea','Cashews'],
+   avoid:['Caffeine','Alcohol','Refined sugar','Excess salt','Processed foods'],
+   focus:'Progesterone peaks then drops — driving PMS. Complex carbs stabilize blood sugar and mood. Magnesium eases cramps. Cutting caffeine reduces PMS significantly.',
+   workouts:[
+     {type:'Hot Pilates',badge:'Moderate heat',rec:'Early luteal: regular hot pilates is fine. Late luteal (days 21–24): lower the heat or go non-heated.',why:'Progesterone raises body temp — stacking hot pilates can be exhausting in the late phase.',bdg:'#C43575',bbg:'#FCE8F2'},
+     {type:'Strength',badge:"Maintain, don't push",rec:'Keep weights consistent but skip new PRs. Focus on form and controlled tempo.',why:'Strength declines as estrogen drops. Joint laxity increases slightly — not the week to max out.',bdg:'#2E7DC4',bbg:'#E8F2FC'},
+     {type:'Hybrid / Cardio',badge:'Low-moderate',rec:'Replace HIIT with steady-state — long walks, moderate cycling, yoga flows.',why:'Cortisol sensitivity is higher — intense cardio can spike it and worsen PMS and bloating.',bdg:'#1E9E80',bbg:'#E3F7F2'},
+   ],
+   move:'Scale intensity day by day. Early luteal you may feel strong — by days 22–24 pulling back is smart. Pilates teaching practice fits perfectly this week.',
+   hasMeals:true,
+   prep:{protein:'Ground turkey · baked chickpeas · eggs',grains:'Sweet potatoes (batch roast) · brown rice · whole grain oats',veg:'Roasted root veg · sautéed spinach + swiss chard',extras:'Cashew trail mix · dark chocolate bark · chamomile tea + magnesium before bed'},
+   meals:[
+     {label:'Day 1',slots:[{n:'Breakfast',t:'Warm oats with banana + cashews + cinnamon'},{n:'Lunch',t:'Sweet potato + chickpea bowl with tahini + spinach'},{n:'Dinner',t:'Turkey meatballs with brown rice + roasted veg'},{n:'Snack',t:'Dark chocolate + chamomile tea'}]},
+     {label:'Day 2',slots:[{n:'Breakfast',t:'Oat porridge with sunflower seeds + berries'},{n:'Lunch',t:'Brown rice bowl with turkey + sautéed greens + avocado'},{n:'Dinner',t:'Chickpea curry with sweet potato + flatbread'},{n:'Snack',t:'Cashews + dark chocolate'}]},
+     {label:'Day 3',slots:[{n:'Breakfast',t:'Sweet potato toast with almond butter + seeds'},{n:'Lunch',t:'Lentil + spinach soup with whole grain bread'},{n:'Dinner',t:'Turkey + veggie stir fry over brown rice'},{n:'Snack',t:'Warm cashew milk + chamomile'}]},
+   ]},
+];
+
+function getPhase(d){for(let i=0;i<PHASES.length;i++){if(d>=PHASES[i].days[0]&&d<=PHASES[i].days[1])return{phase:PHASES[i],idx:i};}return{phase:PHASES[3],idx:3};}
+
+function renderBar(){
+  document.getElementById('pbar').innerHTML=PHASES.map((p,i)=>{const span=p.days[1]-p.days[0]+1;return`<div class="pseg" style="flex:${span};background:${p.color}" onclick="selectPhase(${i})" title="${p.name}"></div>`;}).join('');
+  document.getElementById('blbls').innerHTML=PHASES.map(p=>{const span=p.days[1]-p.days[0]+1;return`<div class="blbl" style="flex:${span}">${p.name.slice(0,3)}</div>`;}).join('');
+}
+function renderNav(){document.getElementById('pnav').innerHTML=PHASES.map((p,i)=>`<button class="pnavbtn" id="pn-${i}" onclick="selectPhase(${i})">${p.name}</button>`).join('');}
+function selectPhase(i){
+  const p=PHASES[i];
+  document.getElementById('pc-name').textContent=p.name;document.getElementById('pc-name').style.color=p.color;
+  document.getElementById('pc-range').textContent=`Days ${p.days[0]}–${p.days[1]}`;
+  const et=document.getElementById('pc-etag');et.textContent=p.energy;et.style.background=p.bg;et.style.color=p.dark;et.style.borderColor=p.mid;
+
+  const isRich = !!p.rich;
+
+  // overview
+  const ovWrap=document.getElementById('pc-overview-wrap');
+  const ovDiv=document.getElementById('pc-overview-div');
+  if(isRich && p.overview){
+    ovWrap.style.display='block'; ovDiv.style.display='block';
+    document.getElementById('pc-overview').innerHTML=p.overview.map(o=>`<div class="overview-card"><div class="overview-card-lbl">${o.lbl}</div><div class="overview-card-txt">${o.txt}</div></div>`).join('');
+  } else { ovWrap.style.display='none'; ovDiv.style.display='none'; }
+
+  // nutrients
+  const nuWrap=document.getElementById('pc-nutrients-wrap');
+  const nuDiv=document.getElementById('pc-nutrients-div');
+  if(isRich && p.nutrients){
+    nuWrap.style.display='block'; nuDiv.style.display='block';
+    document.getElementById('pc-nutrients').innerHTML=p.nutrients.map(n=>`<div class="nutrient-card"><div class="nutrient-lbl">${n.lbl}</div><div class="nutrient-txt">${n.txt}</div></div>`).join('');
+  } else { nuWrap.style.display='none'; nuDiv.style.display='none'; }
+
+  // food categories
+  const fcWrap=document.getElementById('pc-foodcats-wrap');
+  const fcDiv=document.getElementById('pc-foodcats-div');
+  if(isRich && p.foodCats){
+    fcWrap.style.display='block'; fcDiv.style.display='block';
+    document.getElementById('pc-foodcats').innerHTML=p.foodCats.map(c=>`<div class="food-cat"><div class="food-cat-lbl" style="color:${c.color}">${c.lbl}</div><div class="food-cat-items">${c.items.map(it=>`<div class="food-cat-item">· ${it}</div>`).join('')}</div></div>`).join('');
+    document.getElementById('pc-fodmap').innerHTML=`<strong>Low FODMAP notes</strong> — ${p.fodmap}`;
+  } else { fcWrap.style.display='none'; fcDiv.style.display='none'; }
+
+  // simple food pills (non-rich phases only)
+  const sfWrap=document.getElementById('pc-simplefood-wrap');
+  const sfDiv=document.getElementById('pc-simplefood-div');
+  if(!isRich){
+    sfWrap.style.display='block'; sfDiv.style.display='block';
+    document.getElementById('pc-foods').innerHTML=(p.foods||[]).map(f=>`<span class="pill" style="background:${p.bg};border-color:${p.mid};color:${p.dark}">${f}</span>`).join('');
+  } else { sfWrap.style.display='none'; sfDiv.style.display='none'; }
+
+  // avoid pills
+  document.getElementById('pc-avoid').innerHTML=(p.avoid||[]).map(f=>`<span class="pill-no">${f}</span>`).join('');
+
+  // focus text (hide for rich since overview covers it)
+  const fWrap=document.getElementById('pc-focus-wrap');
+  const fDiv=document.getElementById('pc-focus-div');
+  if(!isRich && p.focus){ fWrap.style.display='block'; fDiv.style.display='block'; document.getElementById('pc-focus').textContent=p.focus; }
+  else { fWrap.style.display='none'; fDiv.style.display='none'; }
+
+  document.getElementById('pc-move').textContent=p.move;
+  document.getElementById('pc-wo').innerHTML=p.workouts.map(w=>`<div class="wo-card"><div class="wo-badge" style="color:${w.bdg};background:${w.bbg};border-color:${w.bdg}55">${w.badge}</div><div class="wo-type">${w.type}</div><div class="wo-rec">${w.rec}</div><div class="wo-why">${w.why}</div></div>`).join('');
+
+  const ms=document.getElementById('meal-section');
+  if(p.hasMeals&&p.prep){
+    ms.style.display='block';
+    document.getElementById('prep-grid').innerHTML=Object.entries(p.prep).map(([k,v])=>`<div class="pitem"><div class="pitem-lbl">${k}</div><div class="pitem-txt">${v}</div></div>`).join('');
+    document.getElementById('meal-ideas').innerHTML=p.meals.map(md=>`<div class="mday"><div class="mday-lbl">${md.label}</div>${md.slots.map(sl=>`<div class="mslot"><div class="mslot-name">${sl.n}</div><div class="mslot-txt">${sl.t}</div></div>`).join('')}</div>`).join('');
+  } else {ms.style.display='none';}
+
+  PHASES.forEach((_,idx)=>{const btn=document.getElementById(`pn-${idx}`);if(!btn)return;if(idx===i){btn.classList.add('active');btn.style.background=PHASES[idx].bg;btn.style.color=PHASES[idx].dark;btn.style.borderColor=PHASES[idx].mid;}else{btn.classList.remove('active');btn.style.background='';btn.style.color='';btn.style.borderColor='';}});
+}
+function updateCycle(){
+  const d=Math.max(1,Math.min(35,parseInt(document.getElementById('cdi').value)||1));
+  const{phase,idx}=getPhase(d);
+  const left=phase.days[1]-d+1;
+  document.getElementById('s-phase').textContent=phase.name;document.getElementById('s-phase').style.color=phase.color;
+  document.getElementById('s-left').textContent=`${left} day${left!==1?'s':''} left in phase`;
+  document.getElementById('s-energy').textContent=phase.energy;document.getElementById('s-energy').style.color=phase.dark;
+  selectPhase(idx);
+}
+function showTab(t){
+  ['schedule','cycle','projects'].forEach(id=>{
+    document.getElementById('pane-'+id).classList.toggle('visible',t===id);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active',['schedule','cycle','projects'][i]===t);
+  });
+}
+
+renderWeek();renderBar();renderNav();updateCycle();
+
+/* ── LOCALSTORAGE PERSISTENCE ── */
+function saveAll(){
+  try{
+    localStorage.setItem('aw_lists', JSON.stringify(LISTS));
+    localStorage.setItem('aw_proj', JSON.stringify(PROJ_TASKS));
+    localStorage.setItem('aw_schedule', JSON.stringify(S));
+    localStorage.setItem('aw_cycleday', document.getElementById('scd').value);
+  }catch(e){}
+}
+function loadAll(){
+  try{
+    const lists=localStorage.getItem('aw_lists');
+    if(lists){Object.assign(LISTS,JSON.parse(lists));['grocery','house','nicetohave','todo','content'].forEach(k=>renderList(k));}
+    const proj=localStorage.getItem('aw_proj');
+    if(proj){Object.assign(PROJ_TASKS,JSON.parse(proj));['pow','cyk','col'].forEach(k=>renderProjItems(k));}
+    const sched=localStorage.getItem('aw_schedule');
+    if(sched){
+      const saved=JSON.parse(sched);
+      Object.keys(saved).forEach(di=>{Object.assign(S[di]||{},saved[di]);});
+      renderWeek();
+    }
+    const cd=localStorage.getItem('aw_cycleday');
+    if(cd){document.getElementById('scd').value=cd;document.getElementById('cdi').value=cd;renderWeek();updateCycle();}
+  }catch(e){}
+}
+// Auto-save on any input change
+document.addEventListener('change',saveAll);
+document.addEventListener('input',saveAll);
+// Also save when lists/projects are mutated
+const _origAddItem=addItem;
+window.addItem=function(k){_origAddItem(k);saveAll();};
+const _origAddProj=addProjItem;
+window.addProjItem=function(k){_origAddProj(k);saveAll();};
+loadAll();
+</script>
+</body>
+</html>
